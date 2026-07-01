@@ -1,5 +1,7 @@
 # AgentRunbook
 
+[![CI](https://github.com/KingRainIce/agentrunbook/actions/workflows/ci.yml/badge.svg)](https://github.com/KingRainIce/agentrunbook/actions/workflows/ci.yml)
+
 Run auditable AI agents from readable TOML runbooks.
 
 AgentRunbook is a tiny Python framework for repeatable agent workflows: role-based LLM steps, safe tool steps, strict budgets, and JSONL traces. It is designed for teams that want useful agents without pulling in a large platform before they know the workflow works.
@@ -31,8 +33,8 @@ AgentRunbook keeps the useful parts: readable workflows, roles, tool use, guardr
 
 ```bash
 python -m pip install -e .
-agentrunbook init demo.toml
-agentrunbook run demo.toml
+python -m agentrunbook init demo.toml
+python -m agentrunbook run demo.toml
 ```
 
 The default provider is `mock`, so the first run works without keys.
@@ -41,14 +43,14 @@ Use a real model:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
-agentrunbook run examples/support-triage.toml --provider openai --model gpt-4.1-mini
+python -m agentrunbook run examples/support-triage.toml --provider openai --model gpt-4.1-mini
 ```
 
 On PowerShell:
 
 ```powershell
 $env:OPENAI_API_KEY="sk-..."
-agentrunbook run examples/support-triage.toml --provider openai --model gpt-4.1-mini
+python -m agentrunbook run examples/support-triage.toml --provider openai --model gpt-4.1-mini
 ```
 
 Use any OpenAI-compatible endpoint:
@@ -56,7 +58,7 @@ Use any OpenAI-compatible endpoint:
 ```bash
 export OPENAI_BASE_URL="https://api.your-provider.example"
 export OPENAI_API_KEY="..."
-agentrunbook run examples/research-brief.toml --provider openai --model your-model
+python -m agentrunbook run examples/research-brief.toml --provider openai --model your-model
 ```
 
 ## A Runbook
@@ -111,13 +113,13 @@ Every run creates:
 Shell tools are useful for code and ops workflows, but they should not be magic. A shell step is dry-run by default:
 
 ```bash
-agentrunbook run examples/repo-review.toml
+python -m agentrunbook run examples/repo-review.toml
 ```
 
 Actually execute allowlisted commands:
 
 ```bash
-agentrunbook run examples/repo-review.toml --allow-shell
+python -m agentrunbook run examples/repo-review.toml --allow-shell
 ```
 
 The runbook must explicitly allow command heads:
