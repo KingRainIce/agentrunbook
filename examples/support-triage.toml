@@ -1,0 +1,77 @@
+[runbook]
+name = "support-triage"
+description = "Classify a support ticket, draft a response, and write an escalation note."
+provider = "mock"
+model = "mock-smart"
+max_steps = 6
+max_seconds = 180
+max_tool_seconds = 20
+
+[context]
+ticket = """
+Customer: Acme Analytics
+Plan: Enterprise
+Issue: CSV exports are stuck at 92% after upgrading from 2.8.1 to 2.9.0.
+Impact: Finance team cannot close their weekly report.
+Already tried: Restarted the job twice. Smaller exports still work.
+"""
+
+[[agents]]
+id = "triager"
+role = "Senior support triage agent"
+goal = "Classify customer issues and identify the fastest path to resolution."
+instructions = "Be calm, concrete, and operational. Separate known facts from hypotheses."
+
+[[agents]]
+id = "responder"
+role = "Customer response agent"
+goal = "Draft empathetic, precise support replies."
+instructions = "Avoid overpromising. Ask for only the missing details that matter."
+
+[[steps]]
+id = "classify"
+type = "llm"
+agent = "triager"
+save_as = "classification"
+prompt = """
+Ticket:
+{{ ticket }}
+
+Return:
+- severity
+- likely component
+- top 3 hypotheses
+- missing information
+- immediate next action
+"""
+
+[[steps]]
+id = "draft_reply"
+type = "llm"
+agent = "responder"
+save_as = "reply"
+prompt = """
+Ticket:
+{{ ticket }}
+
+Triage:
+{{ classification }}
+
+Draft a customer-facing response.
+"""
+
+[[steps]]
+id = "write"
+type = "write"
+path = "support-triage.md"
+content = """
+# Support triage
+
+## Classification
+
+{{ classification }}
+
+## Draft reply
+
+{{ reply }}
+"""

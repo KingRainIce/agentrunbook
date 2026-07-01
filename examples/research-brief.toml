@@ -1,0 +1,49 @@
+[runbook]
+name = "research-brief"
+description = "Fetch public repository metadata and turn it into a short research brief."
+provider = "mock"
+model = "mock-smart"
+max_steps = 6
+max_seconds = 180
+max_tool_seconds = 30
+
+[context]
+repo = "openai/openai-agents-python"
+angle = "What can a small agent project learn from this repository?"
+
+[[agents]]
+id = "analyst"
+role = "Open-source product analyst"
+goal = "Extract useful product and positioning lessons from public project signals."
+instructions = "Ground claims in the provided data. Avoid generic hype."
+
+[[steps]]
+id = "fetch_repo"
+type = "http"
+url = "https://api.github.com/repos/{{ repo }}"
+save_as = "repo_json"
+
+[[steps]]
+id = "brief"
+type = "llm"
+agent = "analyst"
+save_as = "brief"
+prompt = """
+Repository JSON:
+{{ repo_json }}
+
+Angle:
+{{ angle }}
+
+Write:
+- one-line positioning
+- what developers likely star it for
+- one lesson for a new project
+- one risk to avoid
+"""
+
+[[steps]]
+id = "write"
+type = "write"
+path = "research-brief.md"
+content = "{{ brief }}"

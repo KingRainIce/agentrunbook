@@ -1,0 +1,68 @@
+[runbook]
+name = "repo-review"
+description = "Inspect a repository working tree and write a review checklist."
+provider = "mock"
+model = "mock-smart"
+max_steps = 8
+max_seconds = 180
+max_tool_seconds = 20
+
+[context]
+review_focus = "Find release-blocking risks and missing verification steps."
+
+[tools.shell]
+allow = ["git", "python"]
+
+[[agents]]
+id = "reviewer"
+role = "Senior code review agent"
+goal = "Turn repository signals into a practical review checklist."
+instructions = "Prioritize correctness, security, tests, and operational risk."
+
+[[steps]]
+id = "status"
+type = "shell"
+command = "git status --short"
+save_as = "git_status"
+allow_failure = true
+
+[[steps]]
+id = "diff_stat"
+type = "shell"
+command = "git diff --stat"
+save_as = "diff_stat"
+allow_failure = true
+
+[[steps]]
+id = "python_version"
+type = "shell"
+command = "python --version"
+save_as = "python_version"
+allow_failure = true
+
+[[steps]]
+id = "review"
+type = "llm"
+agent = "reviewer"
+save_as = "review"
+prompt = """
+Review focus:
+{{ review_focus }}
+
+git status:
+{{ git_status }}
+
+git diff stat:
+{{ diff_stat }}
+
+python version:
+{{ python_version }}
+
+Write a concise review checklist with severity labels.
+"""
+
+[[steps]]
+id = "write"
+type = "write"
+path = "repo-review.md"
+content = "{{ review }}"
