@@ -1,0 +1,34 @@
+[runbook]
+name = "mcp-echo"
+description = "Call a tiny local MCP stdio server through an auditable runbook step."
+provider = "mock"
+model = "mock-smart"
+max_steps = 4
+max_seconds = 120
+max_tool_seconds = 20
+
+[context]
+message = "Hello from AgentRunbook MCP"
+
+[tools.shell]
+allow = ["python"]
+
+[[steps]]
+id = "echo"
+type = "mcp_tool"
+command = "python mcp-echo-server.py"
+tool = "echo"
+save_as = "echoed"
+
+[steps.arguments]
+text = "{{ message }}"
+
+[[steps]]
+id = "write"
+type = "write"
+path = "mcp-echo.md"
+content = """
+# MCP echo
+
+{{ echoed }}
+"""

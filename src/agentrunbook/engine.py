@@ -10,7 +10,7 @@ from typing import Any
 from .models import Agent, RunResult, Runbook, Step, StepResult
 from .providers import ModelProvider, make_provider
 from .templating import render_template
-from .tools import http_get, run_shell_command, write_artifact
+from .tools import fetch_github_issue, http_get, run_mcp_tool, run_shell_command, write_artifact
 from .tracing import Tracer
 
 
@@ -109,6 +109,10 @@ class Runner:
             return self._run_http_step(step, context)
         if step.type == "write":
             return self._run_write_step(step, context)
+        if step.type == "github_issue_triage":
+            return self._run_github_issue_triage_step(step, context)
+        if step.type == "mcp_tool":
+            return self._run_mcp_tool_step(step, context)
         raise RunError(f"unsupported step type: {step.type}")
 
     def _run_llm_step(self, step: Step, context: dict[str, Any]) -> StepResult:
@@ -156,6 +160,54 @@ class Runner:
             output=str(target),
             metadata={"path": str(target)},
         )
+
+    def _run_github_issue_triage_step(self, step: Step, context: dict[str, Any]) -> StepResult:
+        repo = render_template(step.repo or "", context)
+        issue = render_template(step.issue or "", context)
+        timeout = step.timeout_seconds or self.runbook.max_tool_seconds
+        issue_data = fetch_github_issue(repo, issue, step.max_comments, timeout)
+        raw_artifact = write_artifact(
+            context["run"]["dir_path"],
+            f"github/{repo.replace('/', '-')}-{issue}.json",
+            json.dumps(issue_data, ensure_ascii=False, indent=2),
+        )
+        agent = self.runbook.agent_by_id(step.agent)
+        guidance = render_template(step.prompt or DEFAULT_ISSUE_TRIAGE_PROMPT, context)
+        messages = [
+            {"role": "system", "content": self._system_prompt(agent)},
+            {"role": "user", "content": build_issue_triage_prompt(issue_data, guidance)},
+        ]
+        output = self.provider.generate(messages, self.runbook.model)
+        return StepResult(
+            id=step.id,
+            type=step.type,
+            status="ok",
+            output=output,
+            metadata={
+                "agent": step.agent,
+                "model": self.runbook.model,
+                "repo": repo,
+                "issue": issue,
+                "url": issue_data.get("url", ""),
+                "raw_artifact": str(raw_artifact),
+            },
+        )
+
+    def _run_mcp_tool_step(self, step: Step, context: dict[str, Any]) -> StepResult:
+        command = render_template(step.command or "", context)
+        tool_name = render_template(step.tool or "", context)
+        arguments = render_value(step.arguments, context)
+        timeout = step.timeout_seconds or self.runbook.max_tool_seconds
+        output, metadata = run_mcp_tool(
+            command=command,
+            cwd=self.cwd,
+            tool_name=tool_name,
+            arguments=arguments,
+            timeout_seconds=timeout,
+            allowed_shell=self.runbook.allowed_shell,
+            allow_shell=self.allow_shell,
+        )
+        return StepResult(id=step.id, type=step.type, status="ok", output=output, metadata=metadata)
 
     def _initial_context(self, run_id: str, run_dir: Path) -> dict[str, Any]:
         now = datetime.now(timezone.utc)
@@ -251,3 +303,37 @@ class Runner:
             )
         path.write_text("\n".join(lines), encoding="utf-8")
         return path
+
+
+DEFAULT_ISSUE_TRIAGE_PROMPT = """
+Triage this GitHub issue for a maintainer.
+
+Return:
+- Severity: P0/P1/P2/P3 with one-sentence reason
+- Type: bug, feature, docs, question, maintenance, or other
+- Reproduction confidence
+- Missing information
+- Suggested labels
+- Maintainer reply draft
+- Next action checklist
+""".strip()
+
+
+def build_issue_triage_prompt(issue_data: dict[str, object], guidance: str) -> str:
+    return "\n\n".join(
+        [
+            guidance,
+            "GitHub issue data:",
+            json.dumps(issue_data, ensure_ascii=False, indent=2),
+        ]
+    )
+
+
+def render_value(value: Any, context: dict[str, Any]) -> Any:
+    if isinstance(value, str):
+        return render_template(value, context)
+    if isinstance(value, dict):
+        return {key: render_value(item, context) for key, item in value.items()}
+    if isinstance(value, list):
+        return [render_value(item, context) for item in value]
+    return value

@@ -12,7 +12,7 @@ class ConfigError(ValueError):
     """Raised when a runbook is invalid."""
 
 
-STEP_TYPES = {"llm", "shell", "http", "write"}
+STEP_TYPES = {"llm", "shell", "http", "write", "github_issue_triage", "mcp_tool"}
 ID_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
 
 
@@ -86,6 +86,18 @@ def validate_runbook(runbook: Runbook) -> None:
             raise ConfigError(f"http step {step.id!r} requires url")
         if step.type == "write" and (not step.path or step.content is None):
             raise ConfigError(f"write step {step.id!r} requires path and content")
+        if step.type == "github_issue_triage":
+            if not step.repo:
+                raise ConfigError(f"github_issue_triage step {step.id!r} requires repo")
+            if not step.issue:
+                raise ConfigError(f"github_issue_triage step {step.id!r} requires issue")
+            if step.max_comments < 0 or step.max_comments > 100:
+                raise ConfigError(f"github_issue_triage step {step.id!r} max_comments must be between 0 and 100")
+        if step.type == "mcp_tool":
+            if not step.command:
+                raise ConfigError(f"mcp_tool step {step.id!r} requires command")
+            if not step.tool:
+                raise ConfigError(f"mcp_tool step {step.id!r} requires tool")
 
 
 def _parse_agent(data: Any) -> Agent:
@@ -107,11 +119,16 @@ def _parse_step(data: Any) -> Step:
         prompt=_optional_str(item.get("prompt")),
         command=_optional_str(item.get("command")),
         url=_optional_str(item.get("url")),
+        repo=_optional_str(item.get("repo")),
+        issue=_optional_str(item.get("issue")),
+        tool=_optional_str(item.get("tool")),
+        arguments=_as_dict(item.get("arguments", {}), f"step {item.get('id', '<unknown>')}.arguments"),
         path=_optional_str(item.get("path")),
         content=_optional_str(item.get("content")),
         save_as=_optional_str(item.get("save_as")),
         allow_failure=bool(item.get("allow_failure", False)),
         timeout_seconds=_optional_int(item.get("timeout_seconds")),
+        max_comments=int(item.get("max_comments", 10)),
         raw=dict(item),
     )
 

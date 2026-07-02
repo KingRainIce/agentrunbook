@@ -4,6 +4,8 @@
 
 Run auditable AI agents from readable TOML runbooks.
 
+![AgentRunbook demo](https://raw.githubusercontent.com/KingRainIce/agentrunbook/main/docs/demo.gif)
+
 AgentRunbook is a tiny Python framework for repeatable agent workflows: role-based LLM steps, safe tool steps, strict budgets, and JSONL traces. It is designed for teams that want useful agents without pulling in a large platform before they know the workflow works.
 
 ## Why This Exists
@@ -24,7 +26,7 @@ AgentRunbook keeps the useful parts: readable workflows, roles, tool use, guardr
 - Zero runtime dependencies on Python 3.11+.
 - Provider modes: deterministic `mock` by default, OpenAI-compatible chat completions when you set an API key.
 - Role-based agents with system prompts, goals, and instructions.
-- Built-in step types: `llm`, `shell`, `http`, and `write`.
+- Built-in step types: `llm`, `shell`, `http`, `write`, `github_issue_triage`, and `mcp_tool`.
 - Shell safety: shell steps are dry-run unless you pass `--allow-shell`, and commands must be allowlisted.
 - Budgets: max steps, max run seconds, and max tool seconds.
 - Traceability: each run writes `trace.jsonl`, `summary.json`, and `report.md`.
@@ -137,8 +139,51 @@ allow = ["git", "python", "pytest"]
 | `shell` | Run an allowlisted local command with timeout and trace. |
 | `http` | Fetch an HTTP resource for research and context gathering. |
 | `write` | Write generated artifacts inside the run directory. |
+| `github_issue_triage` | Fetch a GitHub issue and comments, then produce a maintainer-ready triage report. |
+| `mcp_tool` | Call a stdio MCP tool through the same allowlist and trace model as shell steps. |
 
 Templates use `{{ value }}` and nested paths such as `{{ steps.classify.output }}`.
+
+## GitHub Issue Triage
+
+```bash
+python -m agentrunbook run examples/github-issue-triage.toml
+```
+
+Use `GITHUB_TOKEN` or `GH_TOKEN` for private repositories or higher API rate limits. The step stores the raw GitHub issue payload as an artifact and sends the compact issue context to the configured agent.
+
+```toml
+[[steps]]
+id = "triage"
+type = "github_issue_triage"
+agent = "maintainer"
+repo = "owner/project"
+issue = "123"
+max_comments = 20
+save_as = "triage"
+```
+
+## MCP Tools
+
+MCP tool calls are dry-run unless you pass `--allow-shell`, because stdio MCP servers are local processes.
+
+```bash
+python -m agentrunbook run examples/mcp-echo.toml --allow-shell
+```
+
+```toml
+[tools.shell]
+allow = ["python"]
+
+[[steps]]
+id = "echo"
+type = "mcp_tool"
+command = "python examples/mcp-echo-server.py"
+tool = "echo"
+
+[steps.arguments]
+text = "Hello from MCP"
+```
 
 ## Example Ideas
 

@@ -21,11 +21,16 @@ class Step:
     prompt: str | None = None
     command: str | None = None
     url: str | None = None
+    repo: str | None = None
+    issue: str | None = None
+    tool: str | None = None
+    arguments: dict[str, Any] = field(default_factory=dict)
     path: str | None = None
     content: str | None = None
     save_as: str | None = None
     allow_failure: bool = False
     timeout_seconds: int | None = None
+    max_comments: int = 10
     raw: dict[str, Any] = field(default_factory=dict)
 
 

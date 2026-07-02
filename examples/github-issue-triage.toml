@@ -1,0 +1,52 @@
+[runbook]
+name = "github-issue-triage"
+description = "Fetch a GitHub issue, ask an agent to triage it, and write a maintainer-ready report."
+provider = "mock"
+model = "mock-smart"
+max_steps = 6
+max_seconds = 180
+max_tool_seconds = 30
+
+[context]
+repo = "KingRainIce/agentrunbook"
+issue = "1"
+
+[[agents]]
+id = "maintainer"
+role = "Open-source maintainer"
+goal = "Triage issues quickly without losing important user context."
+instructions = "Be concrete. Separate facts from guesses. Prefer maintainer actions that unblock the reporter."
+
+[[steps]]
+id = "triage"
+type = "github_issue_triage"
+agent = "maintainer"
+repo = "{{ repo }}"
+issue = "{{ issue }}"
+max_comments = 20
+save_as = "triage"
+prompt = """
+Triage this issue for a small open-source Python project.
+
+Return:
+- priority
+- issue type
+- suspected area
+- missing information
+- suggested labels
+- maintainer reply draft
+- next action checklist
+"""
+
+[[steps]]
+id = "write"
+type = "write"
+path = "github-issue-triage.md"
+content = """
+# GitHub issue triage
+
+Repo: {{ repo }}
+Issue: {{ issue }}
+
+{{ triage }}
+"""

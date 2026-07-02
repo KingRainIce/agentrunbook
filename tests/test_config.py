@@ -25,6 +25,15 @@ class ConfigTests(unittest.TestCase):
                 }
             )
 
+    def test_github_issue_triage_requires_repo(self):
+        with self.assertRaises(ConfigError):
+            parse_runbook(
+                {
+                    "runbook": {"name": "bad"},
+                    "steps": [{"id": "triage", "type": "github_issue_triage", "issue": 1}],
+                }
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
